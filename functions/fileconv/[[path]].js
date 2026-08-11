@@ -35,8 +35,15 @@ export async function onRequest(context) {
       if (!file || typeof file.arrayBuffer !== 'function') {
         return Response.json({ error: 'A multipart file field is required.' }, { status: 400 });
       }
+      const bytes = await file.arrayBuffer();
+      const mimeType = typeof file.type === 'string' && file.type
+        ? file.type
+        : 'application/octet-stream';
+      const filename = typeof file.name === 'string' && file.name
+        ? file.name
+        : 'photo.png';
       body = new FormData();
-      body.append('file', file, file.name || 'photo.png');
+      body.append('file', new Blob([bytes], { type: mimeType }), filename);
     }
     const response = await fetch(target, {
       method: context.request.method,
