@@ -31,7 +31,7 @@ export async function onRequest(context) {
   if (context.request.method === 'POST') {
     const incoming = await context.request.formData();
     const file = incoming.get('file');
-    if (!(file instanceof File)) {
+    if (!file || typeof file.arrayBuffer !== 'function') {
       return Response.json({ error: 'A multipart file field is required.' }, { status: 400 });
     }
     body = new FormData();
