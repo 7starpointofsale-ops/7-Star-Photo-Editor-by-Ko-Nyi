@@ -24,13 +24,22 @@ export async function onRequest(context) {
 
   const target = new URL(`${upstream}${suffix}`);
   target.search = requestUrl.search;
-  const headers = new Headers();
-  const contentType = context.request.headers.get('content-type');
-  if (contentType) headers.set('content-type', contentType);
+  // Re-create the multipart request instead of streaming the incoming body.
+  // FileConv's multipart parser rejects a chunked stream from the edge, while
+  // Workers serializes a FormData body with a valid boundary and file part.
+  let body;
+  if (context.request.method === 'POST') {
+    const incoming = await context.request.formData();
+    const file = incoming.get('file');
+    if (!(file instanceof File)) {
+      return Response.json({ error: 'A multipart file field is required.' }, { status: 400 });
+    }
+    body = new FormData();
+    body.append('file', file, file.name || 'photo.png');
+  }
   const response = await fetch(target, {
     method: context.request.method,
-    headers,
-    body: context.request.method === 'POST' ? context.request.body : undefined,
+    body,
   });
   const outputHeaders = new Headers();
   const outputType = response.headers.get('content-type');
