@@ -37,6 +37,7 @@ class _ColorDialog extends StatefulWidget {
 
 class _ColorDialogState extends State<_ColorDialog> {
   late Color value;
+  String? hexError;
   late final TextEditingController hex;
   late final TextEditingController r;
   late final TextEditingController g;
@@ -100,8 +101,11 @@ class _ColorDialogState extends State<_ColorDialog> {
     if (RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(text)) {
       setState(() {
         value = Color(int.parse('FF$text', radix: 16));
+        hexError = null;
         _sync();
       });
+    } else {
+      setState(() => hexError = 'HEX code သည် #RRGGBB ပုံစံဖြစ်ရပါမည်။');
     }
   }
 
@@ -163,6 +167,18 @@ class _ColorDialogState extends State<_ColorDialog> {
                                     .toColor();
                                 _sync();
                               })),
+                      const SizedBox(height: 8),
+                      const Text('Visual color picker'),
+                      const SizedBox(height: 6),
+                      _ColorPlane(
+                        hue: hsv.hue,
+                        saturation: hsv.saturation,
+                        brightness: hsv.value,
+                        onChanged: (s, v) => setState(() {
+                          value = HSVColor.fromAHSV(1, hsv.hue, s, v).toColor();
+                          _sync();
+                        }),
+                      ),
                       const Text('RGB'),
                       Wrap(spacing: 8, runSpacing: 8, children: [
                         _field('R', r, _rgb),
@@ -173,10 +189,20 @@ class _ColorDialogState extends State<_ColorDialog> {
                       TextField(
                           controller: hex,
                           decoration: const InputDecoration(
-                              labelText: 'HEX',
-                              prefixText: '#',
-                              border: OutlineInputBorder()),
-                          onSubmitted: (_) => _hex()),
+                              labelText: 'HEX', border: OutlineInputBorder()),
+                          onSubmitted: (_) => _hex(),
+                          onChanged: (_) {
+                            if (hexError != null) {
+                              setState(() => hexError = null);
+                            }
+                          }),
+                      if (hexError != null)
+                        Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(hexError!,
+                                style: TextStyle(
+                                    color:
+                                        Theme.of(context).colorScheme.error))),
                       const SizedBox(height: 12),
                       const Text('CMYK'),
                       Wrap(spacing: 8, runSpacing: 8, children: [
@@ -195,4 +221,81 @@ class _ColorDialogState extends State<_ColorDialog> {
               child: const Text('ရွေးရန်'))
         ]);
   }
+}
+
+class _ColorPlane extends StatelessWidget {
+  const _ColorPlane({
+    required this.hue,
+    required this.saturation,
+    required this.brightness,
+    required this.onChanged,
+  });
+  final double hue, saturation, brightness;
+  final void Function(double saturation, double brightness) onChanged;
+
+  void _update(Offset point, Size size) {
+    final s = (point.dx / size.width).clamp(0.0, 1.0);
+    final v = (1 - point.dy / size.height).clamp(0.0, 1.0);
+    onChanged(s, v);
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final size = Size(constraints.maxWidth, 170);
+          return GestureDetector(
+            onPanDown: (details) => _update(details.localPosition, size),
+            onPanUpdate: (details) => _update(details.localPosition, size),
+            child: CustomPaint(
+              size: size,
+              painter: _ColorPlanePainter(hue, saturation, brightness),
+            ),
+          );
+        },
+      );
+}
+
+class _ColorPlanePainter extends CustomPainter {
+  const _ColorPlanePainter(this.hue, this.saturation, this.brightness);
+  final double hue, saturation, brightness;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final base = HSVColor.fromAHSV(1, hue, 1, 1).toColor();
+    canvas.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..shader = LinearGradient(colors: [Colors.white, base])
+              .createShader(Offset.zero & size));
+    canvas.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..shader = const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black])
+              .createShader(Offset.zero & size));
+    final point =
+        Offset(saturation * size.width, (1 - brightness) * size.height);
+    canvas.drawCircle(
+        point,
+        8,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2);
+    canvas.drawCircle(
+        point,
+        10,
+        Paint()
+          ..color = Colors.black
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1);
+  }
+
+  @override
+  bool shouldRepaint(_ColorPlanePainter old) =>
+      old.hue != hue ||
+      old.saturation != saturation ||
+      old.brightness != brightness;
 }

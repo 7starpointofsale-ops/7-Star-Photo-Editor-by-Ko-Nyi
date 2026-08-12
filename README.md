@@ -1,6 +1,14 @@
-# Myanmar Passport / License Photo Editor
+# 7 Star Photo Editor by Ko Nyi
 
 Production Flutter Web app for Cloudflare Pages. There are no accounts, database, persistent application storage, or browser-visible API credentials. Photos stay in browser memory except when a user explicitly chooses FileConv background removal.
+
+## Services
+
+- **လိုင်စင်ပုံပြင်မယ်** — the existing passport/license photo editor, including FileConv background removal.
+- **Scan Document သန့်မယ်** — a local, browser-side document contrast tool. It estimates a low-resolution illumination map and normalizes the image while scaling RGB together, which helps preserve blue and black handwriting. It is an independent implementation; it does not copy ScanWritr and does not upload documents.
+- **Image to Text** — intentionally remains unconfigured until a real local OCR implementation or an explicitly configured provider is selected. No private API or fabricated text result is included.
+
+The custom background dialog provides a visual HSV selection plane, hue control, validated `#RRGGBB`, RGB fields, and CMYK fields. CMYK values are converted to browser sRGB for preview/export; this is not ICC colour-managed CMYK output.
 
 ## Production architecture
 

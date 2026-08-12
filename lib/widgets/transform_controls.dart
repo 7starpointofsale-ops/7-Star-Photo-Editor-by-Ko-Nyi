@@ -15,12 +15,16 @@ class TransformControls extends StatelessWidget {
       required this.onHeight,
       required this.dpi,
       required this.onDpi,
+      required this.cropScale,
+      required this.onCropScale,
       required this.onReset});
   final double rotation;
   final ValueChanged<double> onRotation;
   final PrintUnit unit;
   final ValueChanged<PrintUnit> onUnit;
   final TextEditingController width, height, dpi;
+  final double cropScale;
+  final ValueChanged<double> onCropScale;
   final VoidCallback onWidth, onHeight, onDpi, onReset;
   @override
   Widget build(BuildContext context) =>
@@ -65,7 +69,16 @@ class TransformControls extends StatelessWidget {
         ]),
         const SizedBox(height: 6),
         const Text(
-            'ရွေးထားသော အချိုးအစားအတိုင်း preview နှင့် export ကို ဖြတ်တောက်ပါမည်။')
+            'Preview ပေါ်ရှိ crop frame အတွင်း ပုံကို drag လုပ်၍ crop နေရာရွှေ့ပါ။'),
+        Slider(
+            value: cropScale.clamp(1, 4).toDouble(),
+            min: 1,
+            max: 4,
+            divisions: 60,
+            label: '${cropScale.toStringAsFixed(2)}×',
+            onChanged: onCropScale),
+        const Text(
+            'Crop zoom / resize — ရွေးထားသော အချိုးအစားနှင့် preview/export ကို တကယ်ဖြတ်တောက်ပါမည်။')
       ]);
   Widget _input(String label, TextEditingController controller,
           VoidCallback changed) =>
