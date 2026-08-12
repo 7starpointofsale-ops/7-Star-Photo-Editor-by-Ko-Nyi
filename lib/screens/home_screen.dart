@@ -23,6 +23,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String filename = 'passport-photo';
   Color background = Colors.blue;
   double brightness = 1, contrast = 1, saturation = 1, rotation = 0;
+  Offset cropCenter = const Offset(.5, .5);
+  double cropScale = 1;
   bool loading = false;
   String? error;
   PrintUnit unit = PrintUnit.mm;
@@ -97,6 +99,8 @@ class _HomeScreenState extends State<HomeScreen> {
         background = Colors.blue;
         brightness = contrast = saturation = 1;
         rotation = 0;
+        cropCenter = const Offset(.5, .5);
+        cropScale = 1;
         error = null;
         width.text = '35';
         height.text = '45';
@@ -112,7 +116,16 @@ class _HomeScreenState extends State<HomeScreen> {
       saturation: saturation,
       rotationDegrees: rotation,
       aspectRatio: _ratio,
-      outputWidthPx: _outputWidth);
+      outputWidthPx: _outputWidth,
+      cropCenter: cropCenter,
+      cropScale: cropScale,
+      cropEditing: step == 4,
+      onCropPan: (delta) => setState(() {
+            cropCenter = Offset(
+              (cropCenter.dx - delta.dx).clamp(0.0, 1.0).toDouble(),
+              (cropCenter.dy - delta.dy).clamp(0.0, 1.0).toDouble(),
+            );
+          }));
   Future<void> _export(bool jpg) async {
     try {
       final panel = _panel(working ?? original);
@@ -275,7 +288,13 @@ class _HomeScreenState extends State<HomeScreen> {
             onWidth: () => setState(() {}),
             onHeight: () => setState(() {}),
             onDpi: () => setState(() {}),
-            onReset: () => setState(() => rotation = 0));
+            cropScale: cropScale,
+            onCropScale: (value) => setState(() => cropScale = value),
+            onReset: () => setState(() {
+                  rotation = 0;
+                  cropCenter = const Offset(.5, .5);
+                  cropScale = 1;
+                }));
         break;
       case 5:
         content =
