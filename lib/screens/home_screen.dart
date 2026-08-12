@@ -160,20 +160,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final image = working ?? original;
     return Scaffold(
-        appBar: AppBar(
-            title: const Text('မြန်မာ Passport / License Photo Editor'),
-            actions: [
-              IconButton(
-                  tooltip: 'အစမှပြန်လုပ်ရန်',
-                  onPressed: _reset,
-                  icon: const Icon(Icons.restart_alt))
-            ]),
+        appBar: AppBar(title: const Text('License Photo Editor'), actions: [
+          IconButton(
+              tooltip: 'အစမှပြန်လုပ်ရန်',
+              onPressed: _reset,
+              icon: const Icon(Icons.restart_alt))
+        ]),
         body: SafeArea(
             child: Center(
                 child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1100),
+                    constraints: const BoxConstraints(maxWidth: 1200),
                     child: Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                         child: Column(children: [
                           StepIndicator(current: step),
                           if (error != null)
@@ -185,22 +183,46 @@ class _HomeScreenState extends State<HomeScreen> {
                           Expanded(child: LayoutBuilder(builder: (context, c) {
                             final controls = _controls();
                             final panel = _panel(image);
-                            return c.maxWidth > 700
+                            final controlCard = Card(
+                                child: Padding(
+                                    padding: const EdgeInsets.all(22),
+                                    child: controls));
+                            final previewCard = Card(
+                                child: Padding(
+                                    padding: const EdgeInsets.all(18),
+                                    child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Padding(
+                                              padding: EdgeInsets.only(
+                                                  left: 4, bottom: 14),
+                                              child: Text('Live preview',
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w800))),
+                                          Center(child: panel)
+                                        ])));
+                            return c.maxWidth > 760
                                 ? Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
                                         Expanded(
+                                            flex: 5,
                                             child: SingleChildScrollView(
-                                                child: controls)),
-                                        const SizedBox(width: 28),
-                                        Expanded(child: Center(child: panel))
+                                                child: controlCard)),
+                                        const SizedBox(width: 20),
+                                        Expanded(
+                                            flex: 6,
+                                            child: Center(child: previewCard))
                                       ])
                                 : SingleChildScrollView(
                                     child: Column(children: [
-                                    controls,
-                                    const SizedBox(height: 20),
-                                    panel
+                                    controlCard,
+                                    const SizedBox(height: 16),
+                                    previewCard
                                   ]));
                           })),
                           if (loading)
