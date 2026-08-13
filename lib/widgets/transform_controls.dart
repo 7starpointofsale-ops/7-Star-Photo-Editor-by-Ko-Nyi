@@ -69,7 +69,7 @@ class TransformControls extends StatelessWidget {
         ]),
         const SizedBox(height: 6),
         const Text(
-            'Preview ပေါ်ရှိ crop frame အတွင်း ပုံကို drag လုပ်၍ crop နေရာရွှေ့ပါ။'),
+            'Preview ပေါ်ရှိ crop box ကို drag လုပ်၍ နေရာရွှေ့ပါ။ မည်းနေသောအပြင်ဘက်သည် export မပါဝင်ပါ။'),
         Slider(
             value: cropScale.clamp(1, 4).toDouble(),
             min: 1,
