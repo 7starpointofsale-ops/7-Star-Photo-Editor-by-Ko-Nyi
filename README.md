@@ -16,6 +16,8 @@ Scan Document accepts multiple JPG/JPEG, PNG, WEBP, and PDF files. Image files a
 
 A PDF is rendered and processed page-by-page in order, then saved as a new multi-page `*_contrast.pdf`. Page-by-page PDF handling is deliberate memory control: it preserves every page without attempting to keep hundreds of rendered pages in memory simultaneously. No document is uploaded to the app server.
 
+**Auto crop / perspective** is optional and off by default. When enabled, processing crops and straightens a photograph only if all four page boundaries are detected with high confidence. Partially framed pages and severely curled pages are intentionally left geometrically unchanged; software cannot truthfully recreate a missing edge or fully dewarp a curved sheet from one photograph.
+
 ## Production architecture
 
 ```text

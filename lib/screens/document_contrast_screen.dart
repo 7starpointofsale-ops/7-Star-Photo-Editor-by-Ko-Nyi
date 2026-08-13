@@ -18,6 +18,7 @@ class _DocumentContrastScreenState extends State<DocumentContrastScreen> {
   List<ProcessedDocument> _results = [];
   String? _error;
   bool _processing = false;
+  bool _autoCrop = false;
 
   Future<void> _pick() async {
     final picked = await FilePicker.platform.pickFiles(
@@ -43,6 +44,13 @@ class _DocumentContrastScreenState extends State<DocumentContrastScreen> {
       _results = [];
       _error = null;
     });
+    for (final item in accepted) {
+      _batch.createThumbnail(item).then((thumbnail) {
+        if (mounted) {
+          setState(() => item.thumbnail = thumbnail);
+        }
+      }).catchError((_) {});
+    }
   }
 
   Future<void> _process() async {
@@ -57,8 +65,8 @@ class _DocumentContrastScreenState extends State<DocumentContrastScreen> {
       }
     });
     try {
-      final results =
-          await _batch.processAll(_items, mode: _mode, onProgress: () {
+      final results = await _batch
+          .processAll(_items, mode: _mode, autoCrop: _autoCrop, onProgress: () {
         if (mounted) setState(() {});
       });
       if (mounted) {
@@ -124,6 +132,14 @@ class _DocumentContrastScreenState extends State<DocumentContrastScreen> {
                               ? null
                               : (value) => setState(() => _mode = value!),
                         ),
+                        FilterChip(
+                            selected: _autoCrop,
+                            avatar:
+                                const Icon(Icons.crop_free_outlined, size: 18),
+                            label: const Text('Auto crop / perspective'),
+                            onSelected: _processing
+                                ? null
+                                : (value) => setState(() => _autoCrop = value)),
                         FilledButton.icon(
                             onPressed:
                                 _items.isEmpty || _processing ? null : _process,
@@ -156,6 +172,14 @@ class _DocumentContrastScreenState extends State<DocumentContrastScreen> {
                     ),
                   ),
                 ),
+                if (_autoCrop)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10),
+                    child: Text(
+                        'Optional: အနား ၄ ဖက်ကို ယုံကြည်စွာတွေ့မှသာ crop + perspective warp လုပ်ပါမည်။ အနားပျောက်နေခြင်း/တွန့်လိမ်မှု ပြင်းထန်ခြင်းတွင် original geometry ကိုထိန်းထားပါမည်။',
+                        style:
+                            TextStyle(color: Color(0xff5B6880), height: 1.4)),
+                  ),
                 const SizedBox(height: 18),
                 Text(
                     '${_items.length} files • ${_batch.recommendedParallelism} parallel workers',
@@ -236,9 +260,8 @@ class _FileRow extends StatelessWidget {
         ),
     };
     return ListTile(
-      leading: Icon(item.name.toLowerCase().endsWith('.pdf')
-          ? Icons.picture_as_pdf_outlined
-          : Icons.image_outlined),
+      minVerticalPadding: 8,
+      leading: _Thumbnail(item: item),
       title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, color: color, size: 19),
@@ -251,4 +274,28 @@ class _FileRow extends StatelessWidget {
       ]),
     );
   }
+}
+
+class _Thumbnail extends StatelessWidget {
+  const _Thumbnail({required this.item});
+  final DocumentBatchItem item;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: BorderRadius.circular(7),
+        child: Container(
+          width: 58,
+          height: 44,
+          color: const Color(0xffEEF2F8),
+          child: item.thumbnail == null
+              ? Icon(item.name.toLowerCase().endsWith('.pdf')
+                  ? Icons.picture_as_pdf_outlined
+                  : Icons.image_outlined)
+              : Image.memory(item.thumbnail!,
+                  cacheWidth: 116,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.broken_image_outlined)),
+        ),
+      );
 }

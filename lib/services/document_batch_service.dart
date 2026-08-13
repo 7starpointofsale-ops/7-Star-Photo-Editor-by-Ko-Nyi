@@ -15,6 +15,7 @@ class DocumentBatchItem {
   DocumentBatchItem({required this.name, required this.bytes});
   final String name;
   final Uint8List bytes;
+  Uint8List? thumbnail;
   BatchItemState state = BatchItemState.waiting;
   String? error;
 }
@@ -47,12 +48,13 @@ class DocumentBatchService {
   Future<List<ProcessedDocument>> processAll(
     List<DocumentBatchItem> items, {
     required DocumentContrastMode mode,
+    required bool autoCrop,
     required void Function() onProgress,
   }) async {
     final output = <ProcessedDocument>[];
     final pending = <Future<void>>[];
     for (final item in items) {
-      pending.add(_processItem(item, mode).then((result) {
+      pending.add(_processItem(item, mode, autoCrop).then((result) {
         output.add(result);
       }).catchError((Object error) {
         item.state = BatchItemState.failed;
@@ -70,16 +72,16 @@ class DocumentBatchService {
   }
 
   Future<ProcessedDocument> _processItem(
-      DocumentBatchItem item, DocumentContrastMode mode) async {
+      DocumentBatchItem item, DocumentContrastMode mode, bool autoCrop) async {
     item.state = BatchItemState.processing;
-    if (_isPdf(item.name)) return _processPdf(item, mode);
+    if (_isPdf(item.name)) return _processPdf(item, mode, autoCrop);
     if (!_isImage(item.name)) {
       throw const FormatException(
           'JPG, PNG, WEBP သို့မဟုတ် PDF ဖိုင်သာရပါသည်။');
     }
     final isPng = item.name.toLowerCase().endsWith('.png');
     final bytes = await _processImageInWorker(item.bytes, mode,
-        outputType: isPng ? 'image/png' : 'image/jpeg');
+        outputType: isPng ? 'image/png' : 'image/jpeg', autoCrop: autoCrop);
     item.state = BatchItemState.done;
     return ProcessedDocument(
       name: '${_stem(item.name)}_contrast.${isPng ? 'png' : 'jpg'}',
@@ -89,7 +91,7 @@ class DocumentBatchService {
   }
 
   Future<ProcessedDocument> _processPdf(
-      DocumentBatchItem item, DocumentContrastMode mode) async {
+      DocumentBatchItem item, DocumentContrastMode mode, bool autoCrop) async {
     final source = await pdfx.PdfDocument.openData(item.bytes);
     final output = pw.Document();
     try {
@@ -108,6 +110,7 @@ class DocumentBatchService {
             Uint8List.fromList(rendered.bytes),
             mode,
             outputType: 'image/png',
+            autoCrop: autoCrop,
           );
           final pageFormat = PdfPageFormat(page.width, page.height);
           output.addPage(pw.Page(
@@ -132,7 +135,7 @@ class DocumentBatchService {
 
   Future<Uint8List> _processImageInWorker(
       Uint8List bytes, DocumentContrastMode mode,
-      {required String outputType}) async {
+      {required String outputType, required bool autoCrop}) async {
     try {
       final worker = html.Worker('document_worker.js');
       final id = DateTime.now().microsecondsSinceEpoch.toString();
@@ -144,6 +147,7 @@ class DocumentBatchService {
         'buffer': transferable.buffer,
         'mode': mode.name,
         'outputType': outputType,
+        'autoCrop': autoCrop,
       }, [
         transferable.buffer
       ]);
@@ -153,9 +157,33 @@ class DocumentBatchService {
       if (map['error'] != null) throw StateError(map['error'].toString());
       return Uint8List.view(map['buffer'] as ByteBuffer);
     } catch (_) {
+      if (autoCrop) {
+        throw UnsupportedError(
+            'Auto crop / perspective correction ကို ဤ browser တွင် မလုပ်နိုင်ပါ။ Chrome သို့မဟုတ် Edge ကိုသုံးပါ။');
+      }
       // Safari/older browsers can lack OffscreenCanvas. The fallback remains
       // local and correct, although it runs on the UI thread.
       return _fallback.process(bytes, mode: mode);
+    }
+  }
+
+  Future<Uint8List?> createThumbnail(DocumentBatchItem item) async {
+    if (_isImage(item.name)) return item.bytes;
+    if (!_isPdf(item.name)) return null;
+    final source = await pdfx.PdfDocument.openData(item.bytes);
+    try {
+      if (source.pagesCount == 0) return null;
+      final page = await source.getPage(1);
+      try {
+        final ratio = 160 / page.width;
+        final image =
+            await page.render(width: 160, height: page.height * ratio);
+        return image == null ? null : Uint8List.fromList(image.bytes);
+      } finally {
+        await page.close();
+      }
+    } finally {
+      await source.close();
     }
   }
 
