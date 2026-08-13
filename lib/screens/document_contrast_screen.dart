@@ -14,7 +14,7 @@ class DocumentContrastScreen extends StatefulWidget {
 
 class _DocumentContrastScreenState extends State<DocumentContrastScreen> {
   final _service = DocumentContrastService();
-  DocumentContrastMode _mode = DocumentContrastMode.balanced;
+  DocumentContrastMode _mode = DocumentContrastMode.quality;
   Uint8List? _original;
   Uint8List? _result;
   String _name = 'document';
@@ -60,8 +60,8 @@ class _DocumentContrastScreenState extends State<DocumentContrastScreen> {
         body: SafeArea(
             child: ListView(padding: const EdgeInsets.all(16), children: [
           const Text(
-              'စာရွက်အလင်းမညီမှုကို browser ထဲတွင်သာ local processing ဖြင့် ညှိပေးပါသည်။',
-              style: TextStyle(fontSize: 16)),
+              'စာရွက်၏ မညီသောအလင်း၊ အရိပ်နှင့် gray/yellow paper cast ကို local processing ဖြင့် ဖြူစင်စေပြီး စာလုံးနှင့် အရောင်မှတ်စုများကို ထိန်းထားပါသည်။',
+              style: TextStyle(fontSize: 16, height: 1.45)),
           const SizedBox(height: 16),
           Wrap(
               spacing: 12,

@@ -5,9 +5,14 @@ import 'package:image/image.dart' as img;
 
 enum DocumentContrastMode { auto, fast, balanced, quality }
 
-/// Local, document-aware illumination normalisation.  A small luminance map is
-/// blurred to estimate paper illumination, then interpolated over the original
-/// image.  RGB channels are scaled together so coloured handwriting is kept.
+/// Local, document-aware illumination normalisation.
+///
+/// This deliberately does not use a global brightness/contrast adjustment.
+/// A low-resolution two-scale paper-illumination field is estimated first.
+/// Each original pixel is then expressed relative to its nearby paper colour,
+/// which makes a dim right-hand side and a bright left-hand side converge to
+/// the same white paper level.  Chromatic deviation is retained only for dark
+/// marks, so blue/red handwriting survives while paper casts become neutral.
 class DocumentContrastService {
   Future<Uint8List> process(Uint8List input,
       {DocumentContrastMode mode = DocumentContrastMode.balanced}) async {
@@ -31,25 +36,46 @@ class DocumentContrastService {
         luminance[yy * mapW + xx] = .2126 * p.r + .7152 * p.g + .0722 * p.b;
       }
     }
-    final radius = switch (mode) {
+    final localRadius = switch (mode) {
       DocumentContrastMode.fast => 18,
-      DocumentContrastMode.balanced || DocumentContrastMode.auto => 30,
-      DocumentContrastMode.quality => 42,
+      DocumentContrastMode.balanced || DocumentContrastMode.auto => 28,
+      DocumentContrastMode.quality => 40,
     };
-    final background = _boxBlur(luminance, mapW, mapH, radius);
-    final target = _percentile(background, .72).clamp(150, 238);
+    final localPaper = _boxBlur(luminance, mapW, mapH, localRadius);
+    final broadPaper = _boxBlur(luminance, mapW, mapH, localRadius * 3);
+    final background = List<double>.generate(luminance.length,
+        (index) => math.max(localPaper[index], broadPaper[index] * .96));
+    final settings = switch (mode) {
+      DocumentContrastMode.fast => const _ContrastSettings(246, .92, .055),
+      DocumentContrastMode.auto ||
+      DocumentContrastMode.balanced =>
+        const _ContrastSettings(250, .82, .045),
+      // A gentle < 1 gamma prevents the paper at a photograph edge from
+      // turning grey when the local box estimate is biased toward the centre.
+      DocumentContrastMode.quality => const _ContrastSettings(252, .72, .035),
+    };
     final output = img.Image.from(source);
     for (var yy = 0; yy < source.height; yy++) {
       final fy = yy * (mapH - 1) / math.max(1, source.height - 1);
       for (var xx = 0; xx < source.width; xx++) {
         final bg = _bilinear(background, mapW, mapH,
             xx * (mapW - 1) / math.max(1, source.width - 1), fy);
-        // A restrained gain avoids turning faint paper texture into noise.
-        final gain = (target / math.max(35, bg)).clamp(.58, 1.85);
         final p = source.getPixel(xx, yy);
-        final rr = _tone(p.r * gain);
-        final gg = _tone(p.g * gain);
-        final bb = _tone(p.b * gain);
+        final luma = .2126 * p.r + .7152 * p.g + .0722 * p.b;
+        // Reflectance makes paper (luma ~= estimated background) white even
+        // when the photograph is uniformly dim or strongly unevenly lit.
+        final reflectance = ((luma / math.max(18, bg)) - settings.blackPoint) /
+            (1 - settings.blackPoint);
+        final correctedLuma = (settings.paperWhite *
+                math.pow(reflectance.clamp(0.0, 1.08), settings.textGamma))
+            .toDouble();
+        final colorKeep = math
+            .pow((1 - correctedLuma / settings.paperWhite).clamp(0.0, 1.0), .58)
+            .toDouble();
+        final scale = correctedLuma / math.max(1, luma);
+        final rr = _channel(p.r, luma, correctedLuma, scale, colorKeep);
+        final gg = _channel(p.g, luma, correctedLuma, scale, colorKeep);
+        final bb = _channel(p.b, luma, correctedLuma, scale, colorKeep);
         output.setPixelRgba(xx, yy, rr, gg, bb, p.a);
       }
     }
@@ -97,13 +123,18 @@ class DocumentContrastService {
         values[y1 * width + x1] * dx * dy;
   }
 
-  double _percentile(List<double> values, double fraction) {
-    final copy = [...values]..sort();
-    return copy[(copy.length * fraction).floor().clamp(0, copy.length - 1)];
+  int _channel(num source, double luma, double correctedLuma, double scale,
+      double colorKeep) {
+    // Scaling the chroma offset preserves coloured writing; blending it out
+    // as paper approaches white removes yellow/grey paper casts.
+    final chroma = (source - luma) * scale * colorKeep;
+    return (correctedLuma + chroma).round().clamp(0, 255);
   }
+}
 
-  int _tone(num value) {
-    final normalized = (value / 255).clamp(0.0, 1.0);
-    return (255 * math.pow(normalized, .94)).round().clamp(0, 255);
-  }
+class _ContrastSettings {
+  const _ContrastSettings(this.paperWhite, this.textGamma, this.blackPoint);
+  final double paperWhite;
+  final double textGamma;
+  final double blackPoint;
 }
