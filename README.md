@@ -10,6 +10,12 @@ Production Flutter Web app for Cloudflare Pages. There are no accounts, database
 
 The custom background dialog provides a visual HSV selection plane, hue control, validated `#RRGGBB`, RGB fields, and CMYK fields. CMYK values are converted to browser sRGB for preview/export; this is not ICC colour-managed CMYK output.
 
+### Document batch processing
+
+Scan Document accepts multiple JPG/JPEG, PNG, WEBP, and PDF files. Image files are processed locally using a bounded browser worker pool (up to four parallel workers, adjusted from available CPU cores); this keeps the UI responsive without trying to decode an unlimited number of large images at once. Multiple image results are downloaded as one ZIP file.
+
+A PDF is rendered and processed page-by-page in order, then saved as a new multi-page `*_contrast.pdf`. Page-by-page PDF handling is deliberate memory control: it preserves every page without attempting to keep hundreds of rendered pages in memory simultaneously. No document is uploaded to the app server.
+
 ## Production architecture
 
 ```text

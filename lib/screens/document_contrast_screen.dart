@@ -61,12 +61,17 @@ class _DocumentContrastScreenState extends State<DocumentContrastScreen> {
           await _batch.processAll(_items, mode: _mode, onProgress: () {
         if (mounted) setState(() {});
       });
-      if (mounted) setState(() => _results = results);
+      if (mounted) {
+        setState(() => _results = results);
+      }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'Batch processing မလုပ်နိုင်ပါ: $error');
+      }
     } finally {
-      if (mounted) setState(() => _processing = false);
+      if (mounted) {
+        setState(() => _processing = false);
+      }
     }
   }
 
