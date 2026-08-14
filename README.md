@@ -6,7 +6,7 @@ Production Flutter Web app for Cloudflare Pages. There are no accounts, database
 
 - **လိုင်စင်ပုံပြင်မယ်** — the existing passport/license photo editor, including FileConv background removal.
 - **Scan Document သန့်မယ်** — a local, browser-side document contrast tool. It estimates a low-resolution illumination map and normalizes the image while scaling RGB together, which helps preserve blue and black handwriting. It is an independent implementation; it does not copy ScanWritr and does not upload documents.
-- **Image to Text** — intentionally remains unconfigured until a real local OCR implementation or an explicitly configured provider is selected. No private API or fabricated text result is included.
+- **Image to Text** — local browser OCR for JPG/JPEG/PNG/WEBP. It runs Tesseract.js in a Web Worker with Myanmar, English, or combined language data; the image is not sent to this app's server or a third-party OCR API. The first use downloads the public OCR engine/language files to the browser.
 
 The custom background dialog provides a visual HSV selection plane, hue control, validated `#RRGGBB`, RGB fields, and CMYK fields. CMYK values are converted to browser sRGB for preview/export; this is not ICC colour-managed CMYK output.
 
