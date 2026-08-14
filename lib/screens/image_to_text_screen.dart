@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/local_ocr_service.dart';
+import '../services/word_export_service.dart';
 import '../utils/image_export.dart';
 
 class ImageToTextScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class ImageToTextScreen extends StatefulWidget {
 
 class _ImageToTextScreenState extends State<ImageToTextScreen> {
   final _ocr = LocalOcrService();
+  final _wordExport = WordExportService();
   final _text = TextEditingController();
   Uint8List? _image;
   String _name = '';
@@ -23,6 +25,9 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
   double _progress = 0;
   double? _confidence;
   bool _running = false;
+  bool _wordExporting = false;
+  WordDocumentKind? _wordKind;
+  int _wordFontSize = 13;
 
   @override
   void dispose() {
@@ -102,6 +107,27 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
         'text/plain;charset=utf-8');
   }
 
+  Future<void> _downloadWord() async {
+    if (_wordKind == null || _text.text.trim().isEmpty || _wordExporting) {
+      return;
+    }
+    setState(() {
+      _wordExporting = true;
+      _error = null;
+    });
+    try {
+      final bytes = await _wordExport.create(
+          text: _text.text, kind: _wordKind!, fontSize: _wordFontSize);
+      final base = _name.replaceFirst(RegExp(r'\.[^.]+$'), '');
+      downloadBytes(bytes, '$base.docx',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    } catch (error) {
+      if (mounted) setState(() => _error = 'Word file မထုတ်နိုင်ပါ: $error');
+    } finally {
+      if (mounted) setState(() => _wordExporting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Image to Text')),
@@ -130,8 +156,15 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
                     confidence: _confidence,
                     fillHeight: desktop,
                     enabled: _text.text.isNotEmpty,
+                    wordKind: _wordKind,
+                    wordFontSize: _wordFontSize,
+                    wordExporting: _wordExporting,
                     onCopy: _copy,
                     onDownload: _download,
+                    onWordKind: (value) => setState(() => _wordKind = value),
+                    onWordFontSize: (value) =>
+                        setState(() => _wordFontSize = value),
+                    onWordDownload: _downloadWord,
                   );
                   return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,11 +310,23 @@ class _OutputPanel extends StatelessWidget {
       required this.fillHeight,
       required this.enabled,
       required this.onCopy,
-      required this.onDownload});
+      required this.onDownload,
+      required this.wordKind,
+      required this.wordFontSize,
+      required this.wordExporting,
+      required this.onWordKind,
+      required this.onWordFontSize,
+      required this.onWordDownload});
   final TextEditingController controller;
   final double? confidence;
   final bool fillHeight, enabled;
   final VoidCallback onCopy, onDownload;
+  final WordDocumentKind? wordKind;
+  final int wordFontSize;
+  final bool wordExporting;
+  final ValueChanged<WordDocumentKind?> onWordKind;
+  final ValueChanged<int> onWordFontSize;
+  final VoidCallback onWordDownload;
 
   Widget _editor() => TextField(
       controller: controller,
@@ -326,5 +371,71 @@ class _OutputPanel extends StatelessWidget {
                   icon: const Icon(Icons.download_outlined),
                   label: const Text('TXT Download'))
             ]),
+            const SizedBox(height: 18),
+            const Divider(),
+            const SizedBox(height: 8),
+            const Text('Word format (လိုအပ်မှသာ ရွေးပါ)',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            const Text(
+                'မရွေးထားလျှင် Copy သို့မဟုတ် TXT Download ကို ရိုးရိုးအသုံးပြုနိုင်ပါသည်။',
+                style: TextStyle(fontSize: 12, color: Color(0xff5B6880))),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              ChoiceChip(
+                  label: const Text('ရုံးစာ'),
+                  selected: wordKind == WordDocumentKind.office,
+                  onSelected: (_) => onWordKind(
+                      wordKind == WordDocumentKind.office
+                          ? null
+                          : WordDocumentKind.office)),
+              ChoiceChip(
+                  label: const Text('စာချုပ်'),
+                  selected: wordKind == WordDocumentKind.contract,
+                  onSelected: (_) => onWordKind(
+                      wordKind == WordDocumentKind.contract
+                          ? null
+                          : WordDocumentKind.contract)),
+              ChoiceChip(
+                  label: const Text('အခြား'),
+                  selected: wordKind == WordDocumentKind.other,
+                  onSelected: (_) => onWordKind(
+                      wordKind == WordDocumentKind.other
+                          ? null
+                          : WordDocumentKind.other)),
+            ]),
+            const SizedBox(height: 10),
+            Wrap(
+                spacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  DropdownButton<int>(
+                      value: wordFontSize,
+                      items: const [
+                        DropdownMenuItem(
+                            value: 13, child: Text('Pyidaungsu 13 pt')),
+                        DropdownMenuItem(
+                            value: 12, child: Text('Pyidaungsu 12 pt'))
+                      ],
+                      onChanged: enabled
+                          ? (value) {
+                              if (value != null) onWordFontSize(value);
+                            }
+                          : null),
+                  FilledButton.icon(
+                      onPressed: enabled && wordKind != null && !wordExporting
+                          ? onWordDownload
+                          : null,
+                      icon: wordExporting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.description_outlined),
+                      label: Text(wordExporting
+                          ? 'Word ပြုလုပ်နေသည်…'
+                          : 'Word Download')),
+                ]),
           ])));
 }
