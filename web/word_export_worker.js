@@ -16,11 +16,13 @@ self.onmessage = async ({ data }) => {
     const children = makeParagraphs(d, text, kind, Number(fontSize));
     const bodyFont = { name: 'Pyidaungsu', size: Number(fontSize) * 2 };
     const footer = new d.Footer({
-      children: [new d.Paragraph({
-        alignment: d.AlignmentType.CENTER,
-        children: [new d.TextRun({ text: '(- ', font: 'Pyidaungsu', size: Number(fontSize) * 2 }), new d.TextRun({ children: [d.PageNumber.CURRENT], font: 'Pyidaungsu', size: Number(fontSize) * 2 }), new d.TextRun({ text: ' -)', font: 'Pyidaungsu', size: Number(fontSize) * 2 })],
-      })],
+      children: [pageNumberParagraph(d, fontSize)],
     });
+    // Contracts conventionally carry the page number at the top; office and
+    // other documents keep it in the footer. Both suppress page 1.
+    const header = new d.Header({ children: [pageNumberParagraph(d, fontSize)] });
+    const blankHeader = new d.Header({ children: [] });
+    const blankFooter = new d.Footer({ children: [] });
     const document = new d.Document({
       styles: { default: { document: { run: bodyFont } } },
       sections: [{
@@ -28,7 +30,10 @@ self.onmessage = async ({ data }) => {
           page: { size: { width: page.width, height: page.height }, margin: { top: page.top, bottom: page.bottom, left: page.left, right: page.right, header: 720, footer: 720 } },
           titlePage: true,
         },
-        footers: { default: footer, first: new d.Footer({ children: [] }) },
+        headers: contract ? { default: header, first: blankHeader } : {},
+        footers: contract
+            ? { default: blankFooter, first: blankFooter }
+            : { default: footer, first: blankFooter },
         children,
       }],
     });
@@ -73,4 +78,15 @@ function makeParagraphs(d, source, kind, fontSize) {
 
 function isDateLine(line) {
   return /(ရက်စွဲ|နေ့စွဲ|date|\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}|ခုနှစ်)/i.test(line);
+}
+
+function pageNumberParagraph(d, fontSize) {
+  return new d.Paragraph({
+    alignment: d.AlignmentType.CENTER,
+    children: [
+      new d.TextRun({ text: '- ', font: 'Pyidaungsu Number', size: Number(fontSize) * 2 }),
+      new d.TextRun({ children: [d.PageNumber.CURRENT], font: 'Pyidaungsu Number', size: Number(fontSize) * 2 }),
+      new d.TextRun({ text: ' -', font: 'Pyidaungsu Number', size: Number(fontSize) * 2 }),
+    ],
+  });
 }
