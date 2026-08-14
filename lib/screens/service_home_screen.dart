@@ -52,7 +52,8 @@ class ServiceHomeScreen extends StatelessWidget {
                           icon: Icons.text_fields,
                           accent: const Color(0xff7C3AED),
                           title: 'Image to Text',
-                          subtitle: 'OCR service ကို သီးခြားစီအသုံးပြုရန်',
+                          subtitle:
+                              'Myanmar / English စာကို browser-local OCR ဖြင့် text အဖြစ်ထုတ်ရန်',
                           onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                   builder: (_) => const ImageToTextScreen()))),
